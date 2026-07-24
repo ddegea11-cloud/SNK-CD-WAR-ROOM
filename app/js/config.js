@@ -7,8 +7,8 @@ window.APP_CONFIG = {
      ค่า anon key ถูกออกแบบให้เปิดเผยฝั่ง client ได้ (Supabase RLS เป็นผู้ป้องกันจริง
      ดู supabase/schema.sql — อนุญาตแค่ SELECT เท่านั้น) ห้ามใส่ service_role key ที่นี่เด็ดขาด
      ตัวอย่าง: supabaseUrl: 'https://xxxx.supabase.co', supabaseAnonKey: 'eyJ...' */
-  supabaseUrl: null,
-  supabaseAnonKey: null,
+  supabaseUrl: 'https://kphgornxgmcxojuumkkf.supabase.co',
+  supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwaGdvcm54Z21jeG9qdXVta2tmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4NzAxMDAsImV4cCI6MjEwMDQ0NjEwMH0.cSqyt19zonqsRXslnfhR3Pbk2_yAYIch64rlyokMuBM',
 
   /* เฟส 3 (ทางเลือกเดิม): ใส่ URL ของ Google Apps Script Web App (doGet ที่คืน JSON)
      แล้วระบบจะสลับจาก seed data เป็นข้อมูลจริงอัตโนมัติ — UI ไม่ต้องแก้
