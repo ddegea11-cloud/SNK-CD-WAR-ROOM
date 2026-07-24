@@ -10,3 +10,6 @@ tools/pptx_work/
 budget_summary.json
 kok_nong_na.json
 quality_evaluation.json
+
+# การตั้งค่าเฉพาะเครื่อง ไม่ต้อง commit
+.claude/settings.local.json
