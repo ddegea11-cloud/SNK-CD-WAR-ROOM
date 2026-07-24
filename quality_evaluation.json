@@ -1,0 +1,164 @@
+[
+  {
+    "no": 1.0,
+    "district": "เมืองสกลนคร",
+    "cumulative_disbursement_pct": 86.28,
+    "documents_complete": false,
+    "overdue_loan_contracts": 3,
+    "score_0_to_5": 1.0,
+    "raw_summary": "1.ผลการเบิิกจ่ายสะสม ร้อยละ 86.28 2.ส่งเอกสารหลักฐานทางการเงินไม่ครบถ้วน  3.ส่งใช้เงินยืมเกินกำหนดเวลา 30 วัน จำนวน 3 สัญญา"
+  },
+  {
+    "no": 2.0,
+    "district": "พรรณานิคม",
+    "cumulative_disbursement_pct": 100.0,
+    "documents_complete": true,
+    "overdue_loan_contracts": 1,
+    "score_0_to_5": 4.0,
+    "raw_summary": "1.ผลการเบิิกจ่ายสะสม ร้อยละ 100 2.ส่งเอกสารหลักฐานทางการเงินครบถ้วน  3.ส่งใช้เงินยืมเกินกำหนดเวลา 30 วัน จำนวน 1 สัญญา"
+  },
+  {
+    "no": 3.0,
+    "district": "วาริชภูมิ",
+    "cumulative_disbursement_pct": 99.88,
+    "documents_complete": false,
+    "overdue_loan_contracts": 1,
+    "score_0_to_5": 3.0,
+    "raw_summary": "1.ผลการเบิิกจ่ายสะสม ร้อยละ 99.88 2.ส่งเอกสารหลักฐานทางการเงินไม่ครบถ้วน 3.ส่งใช้เงินยืมเกินกำหนดเวลา 30 วัน จำนวน 1 สัญญา"
+  },
+  {
+    "no": 4.0,
+    "district": "วานรนิวาส",
+    "cumulative_disbursement_pct": 100.0,
+    "documents_complete": true,
+    "overdue_loan_contracts": 0,
+    "score_0_to_5": 5.0,
+    "raw_summary": "1.ผลการเบิิกจ่ายสะสม ร้อยละ 100  2.ส่งเอกสารหลักฐานทางการเงินครบถ้วน  "
+  },
+  {
+    "no": 5.0,
+    "district": "สว่างแดนดิน",
+    "cumulative_disbursement_pct": 93.74,
+    "documents_complete": true,
+    "overdue_loan_contracts": 1,
+    "score_0_to_5": 2.0,
+    "raw_summary": "1.ผลการเบิิกจ่ายสะสม ร้อยละ 93.74 2.ส่งเอกสารหลักฐานทางการเงินครบถ้วน 3.ส่งใช้เงินยืมเกินกำหนดเวลา 30 วัน จำนวน 1 สัญญา"
+  },
+  {
+    "no": 6.0,
+    "district": "อากาศอำนวย",
+    "cumulative_disbursement_pct": 100.0,
+    "documents_complete": true,
+    "overdue_loan_contracts": 0,
+    "score_0_to_5": 5.0,
+    "raw_summary": "1.ผลการเบิิกจ่ายสะสม ร้อยละ 100  2.ส่งเอกสารหลักฐานทางการเงินครบถ้วน  "
+  },
+  {
+    "no": 7.0,
+    "district": "กุุสุมาลย์",
+    "cumulative_disbursement_pct": 100.0,
+    "documents_complete": true,
+    "overdue_loan_contracts": 0,
+    "score_0_to_5": 5.0,
+    "raw_summary": "1.ผลการเบิิกจ่ายสะสม ร้อยละ 100 2.ส่งเอกสารหลักฐานทางการเงินครบถ้วน "
+  },
+  {
+    "no": 8.0,
+    "district": "กุดบาก",
+    "cumulative_disbursement_pct": 84.32,
+    "documents_complete": true,
+    "overdue_loan_contracts": 0,
+    "score_0_to_5": 1.0,
+    "raw_summary": "1.ผลการเบิิกจ่ายสะสม ร้อยละ 84.32 2.ส่งเอกสารหลักฐานทางการเงินครบถ้วน "
+  },
+  {
+    "no": 9.0,
+    "district": "บ้านม่วง",
+    "cumulative_disbursement_pct": 99.63,
+    "documents_complete": true,
+    "overdue_loan_contracts": 0,
+    "score_0_to_5": 4.0,
+    "raw_summary": "1.ผลการเบิิกจ่ายสะสม ร้อยละ 99.63  2.ส่งเอกสารหลักฐานทางการเงินครบถ้วน "
+  },
+  {
+    "no": 10.0,
+    "district": "พังโคน",
+    "cumulative_disbursement_pct": 94.19,
+    "documents_complete": true,
+    "overdue_loan_contracts": 3,
+    "score_0_to_5": 3.0,
+    "raw_summary": "1.ผลการเบิิกจ่ายสะสม ร้อยละ 94.19 2.ส่งเอกสารหลักฐานทางการเงินครบถ้วน  3.ส่งใช้เงินยืมเกินกำหนดเวลา 30 วัน จำนวน 3 สัญญา"
+  },
+  {
+    "no": 11.0,
+    "district": "ส่องดาว",
+    "cumulative_disbursement_pct": 78.86,
+    "documents_complete": true,
+    "overdue_loan_contracts": 5,
+    "score_0_to_5": 0.0,
+    "raw_summary": "1.ผลการเบิิกจ่ายสะสม ร้อยละ 78.86 2.ส่งเอกสารหลักฐานทางการเงินครบถ้วน  3.ส่งใช้เงินยืมเกินกำหนดเวลา 30 วัน จำนวน 5 สัญญา"
+  },
+  {
+    "no": 12.0,
+    "district": "คำตากล้า",
+    "cumulative_disbursement_pct": 77.31,
+    "documents_complete": true,
+    "overdue_loan_contracts": 0,
+    "score_0_to_5": 0.0,
+    "raw_summary": "1.ผลการเบิิกจ่ายสะสม ร้อยละ 77.31 2.ส่งเอกสารหลักฐานทางการเงินครบถ้วน  "
+  },
+  {
+    "no": 13.0,
+    "district": "เต่่างอย",
+    "cumulative_disbursement_pct": 97.33,
+    "documents_complete": true,
+    "overdue_loan_contracts": 2,
+    "score_0_to_5": 3.0,
+    "raw_summary": "1.ผลการเบิิกจ่ายสะสม ร้อยละ 97.33 2.ส่งเอกสารหลักฐานทางการเงินครบถ้วน 3.ส่งใช้เงินยืมเกินกำหนดเวลา 30 วัน จำนวน 2 สัญญา"
+  },
+  {
+    "no": 14.0,
+    "district": "นิคมน้ำอูน",
+    "cumulative_disbursement_pct": 68.79,
+    "documents_complete": true,
+    "overdue_loan_contracts": 1,
+    "score_0_to_5": 0.0,
+    "raw_summary": "1.ผลการเบิิกจ่ายสะสม ร้อยละ 68.79 2.ส่งเอกสารหลักฐานทางการเงินครบถ้วน  3.ส่งใช้เงินยืมเกินกำหนดเวลา 30 วัน จำนวน 1 สัญญา"
+  },
+  {
+    "no": 15.0,
+    "district": "โคกศรีีสุพรรณ",
+    "cumulative_disbursement_pct": 99.72,
+    "documents_complete": true,
+    "overdue_loan_contracts": 1,
+    "score_0_to_5": 3.0,
+    "raw_summary": "1.ผลการเบิิกจ่ายสะสม ร้อยละ 99.72 2.ส่งเอกสารหลักฐานทางการเงินครบถ้วน  3.ส่งใช้เงินยืมเกินกำหนดเวลา 30 วัน จำนวน 1 สัญญา"
+  },
+  {
+    "no": 16.0,
+    "district": "เจริญศิลป์",
+    "cumulative_disbursement_pct": 82.08,
+    "documents_complete": false,
+    "overdue_loan_contracts": 1,
+    "score_0_to_5": 0.0,
+    "raw_summary": "1.ผลการเบิิกจ่ายสะสม ร้อยละ 82.08 2.ส่งเอกสารหลักฐานทางการเงินไม่ครบถ้วน 3.ส่งใช้เงินยืมเกินกำหนดเวลา 30 วัน จำนวน 1 สัญญา"
+  },
+  {
+    "no": 17.0,
+    "district": "โพนนาแก้ว",
+    "cumulative_disbursement_pct": 83.87,
+    "documents_complete": true,
+    "overdue_loan_contracts": 5,
+    "score_0_to_5": 0.0,
+    "raw_summary": "1.ผลการเบิิกจ่ายสะสม ร้อยละ 83.87 2.ส่งเอกสารหลักฐานทางการเงินครบถ้วน  3.ส่งใช้เงินยืมเกินกำหนดเวลา 30 วัน จำนวน 5 สัญญา"
+  },
+  {
+    "no": 18.0,
+    "district": "ภูพาน",
+    "cumulative_disbursement_pct": 84.84,
+    "documents_complete": true,
+    "overdue_loan_contracts": 0,
+    "score_0_to_5": 1.0,
+    "raw_summary": "1.ผลการเบิิกจ่ายสะสม ร้อยละ 84.84 2.ส่งเอกสารหลักฐานทางการเงินครบถ้วน  "
+  }
+]

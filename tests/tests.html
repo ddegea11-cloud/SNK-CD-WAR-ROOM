@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SNK-CD War Room — Unit Tests (Data Layer)</title>
+  <style>
+    body { font-family: "Sarabun", "Leelawadee UI", "Segoe UI", sans-serif; max-width: 860px; margin: 24px auto; padding: 0 16px; }
+    .pass { color: #0a7a0a; } .fail { color: #c62828; font-weight: 700; }
+    li { margin-bottom: 4px; } h2 { margin-top: 28px; }
+    .summary { font-size: 1.2rem; font-weight: 700; padding: 12px; border-radius: 10px; }
+    .summary.ok { background: #e7f6e7; } .summary.bad { background: #fbe9e9; }
+  </style>
+</head>
+<body>
+  <h1>ผลการทดสอบ Data Layer (กฎทอง 5 ข้อ)</h1>
+  <div id="summary" class="summary">กำลังรัน...</div>
+  <ul id="results"></ul>
+
+  <script src="../app/data/budget_summary.js"></script>
+  <script src="../app/data/quality_evaluation.js"></script>
+  <script src="../app/data/kok_nong_na.js"></script>
+  <script src="../app/data/projects.js"></script>
+  <script src="../app/data/regulations.js"></script>
+  <script src="../app/js/etl.js"></script>
+  <script>
+    (function () {
+      var E = window.ETL;
+      var results = [];
+      function test(name, fn) {
+        try {
+          fn();
+          results.push({ name: name, ok: true });
+        } catch (e) {
+          results.push({ name: name, ok: false, err: e.message });
+        }
+      }
+      function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
+      function approx(a, b, eps) { return Math.abs(a - b) <= (eps || 0.01); }
+
+      var seed = { budget: window.SEED_BUDGET, quality: window.SEED_QUALITY, kokNongNa: window.SEED_KOKNONGNA };
+      var budget = E.processBudget(seed.budget);
+      var agg = E.aggregate(budget.rows);
+      var model = E.buildModel(seed, { paceThreshold: 10 }, new Date(2026, 6, 15)); // 15 ก.ค. 2569
+
+      /* กฎทองข้อ 1-3: กรอง noise */
+      test('noise: แถวทดเลข "เงินยืม 9300", "ค่าจ้าง 6900", "ค่่าวัสดุ 3150" ต้องไม่เข้าระบบ', function () {
+        budget.rows.forEach(function (r) {
+          assert(r.unit.indexOf('เงินยืม') < 0 && r.unit.indexOf('ค่าจ้าง') < 0 && r.unit.indexOf('วัสดุ') < 0, 'พบ noise: ' + r.unit);
+        });
+        assert(budget.noise.length >= 3, 'noise ควรถูกจับได้อย่างน้อย 3 แถว (พบ ' + budget.noise.length + ')');
+      });
+
+      test('แถว "รวม" ของไฟล์ต้นทางต้องไม่ถูก ingest (ระบบคำนวณเองเสมอ)', function () {
+        budget.rows.forEach(function (r) { assert(r.unit !== 'รวม', 'แถวรวมหลุดเข้าระบบ'); });
+        assert(budget.droppedTotals.length === 1, 'ควรพบแถวรวม 1 แถว (พบ ' + budget.droppedTotals.length + ')');
+      });
+
+      test('cross-check: ยอดที่ระบบคำนวณเอง (งบยุทธ ไตร1-2) ต้องเท่ากับแถว "รวม" ของต้นทาง', function () {
+        var sum = 0;
+        budget.rows.forEach(function (r) {
+          if (r.category === 'งบยุทธศาสตร์' && r.quarter === 'ไตร1-2') sum += r.allocated;
+        });
+        assert(approx(sum, 11486810), 'คำนวณได้ ' + sum + ' ต้นทางว่า 11,486,810');
+      });
+
+      /* validation: #REF! */
+      test('#REF!: ทุกแถวงบจังหวัด/กลุ่มจังหวัดต้องกลายเป็น issue ไม่ใช่ข้อมูล', function () {
+        budget.rows.forEach(function (r) { assert(r.category !== 'งบจังหวัด/กลุ่มจังหวัด', '#REF! หลุดเข้า rows'); });
+        var refs = budget.issues.filter(function (i) { return i.type === 'REF_ERROR'; });
+        assert(refs.length === 38, 'ควรพบ REF_ERROR 38 แถว (2 ไตรมาส × 19 หน่วย) พบ ' + refs.length);
+      });
+
+      test('#REF!: ยอดรวมจังหวัดต้องไม่รวมหมวดที่เสียหาย (ไม่พังเงียบเป็น 0)', function () {
+        assert(!agg.byCat['งบจังหวัด/กลุ่มจังหวัด'], 'หมวดเสียหายไม่ควรมียอด');
+        assert(model.refBrokenCategories.indexOf('งบจังหวัด/กลุ่มจังหวัด') >= 0, 'ต้องแจ้งหมวดเสียหายให้ UI');
+      });
+
+      /* anomaly flags */
+      test('anomaly: วานรนิวาส งบยุทธ ไตร3-4 (เบิก 513,760 > จัดสรร 456,485) ต้องติด flag', function () {
+        var found = budget.issues.some(function (i) {
+          return i.type === 'ANOMALY' && i.district === 'วานรนิวาส' && i.quarter === 'ไตร3-4';
+        });
+        assert(found, 'ไม่พบ flag วานรนิวาส');
+      });
+
+      test('anomaly: กุสุมาลย์ 295.9% ต้องติด flag และอำเภอขึ้นสถานะ "ควรตรวจสอบ"', function () {
+        var d = null;
+        model.districts.forEach(function (x) { if (x.district === 'กุสุมาลย์') d = x; });
+        assert(d && d.needsCheck, 'กุสุมาลย์ต้อง needsCheck');
+      });
+
+      /* name normalization */
+      test('normalize: "กุุสุมาลย์"/"เต่่างอย"/"โคกศรีีสุพรรณ" (สระซ้ำ) ต้อง join เข้าอำเภอถูกต้อง', function () {
+        assert(E.resolveUnit('กุุสุมาลย์') === 'กุสุมาลย์');
+        assert(E.resolveUnit('เต่่างอย') === 'เต่างอย');
+        assert(E.resolveUnit('โคกศรีีสุพรรณ') === 'โคกศรีสุพรรณ');
+        assert(E.resolveUnit('พรรณานิคม') === 'พรรณานิคม', 'ชื่อที่มีอักษรซ้ำจริง (รร) ต้องไม่พัง');
+      });
+
+      test('quality join: ครบทั้ง 18 อำเภอ ไม่มีอำเภอตกหล่นจากการสะกดเพี้ยน', function () {
+        var q = E.processQuality(seed.quality);
+        assert(Object.keys(q.byDistrict).length === 18, 'join ได้ ' + Object.keys(q.byDistrict).length + '/18');
+        assert(q.unmatched.length === 0, 'มีแถว unmatched: ' + q.unmatched.length);
+      });
+
+      /* กฎทองข้อ 5: no double-count */
+      test('กฎทองข้อ 5: ยอดโคกหนองนาต้องไม่ถูกบวกเพิ่มในยอดรวมจังหวัด (enrichment เท่านั้น)', function () {
+        var withKnn = E.buildModel(seed, {}, new Date(2026, 6, 15));
+        var withoutKnn = E.buildModel({ budget: seed.budget, quality: seed.quality, kokNongNa: [] }, {}, new Date(2026, 6, 15));
+        assert(withKnn.agg.province.allocated === withoutKnn.agg.province.allocated, 'ยอดจัดสรรเปลี่ยนเมื่อมีไฟล์โคกหนองนา = นับซ้ำ!');
+        assert(withKnn.agg.province.disbursed === withoutKnn.agg.province.disbursed, 'ยอดเบิกจ่ายเปลี่ยนเมื่อมีไฟล์โคกหนองนา = นับซ้ำ!');
+      });
+
+      test('โคกหนองนา: แถว "รวม" ถูกตัด และ join enrichment ได้ 10 อำเภอ', function () {
+        var k = E.processKokNongNa(seed.kokNongNa);
+        assert(!k.byDistrict['รวม'], 'แถวรวมหลุด');
+        assert(Object.keys(k.byDistrict).length === 10, 'ควร 10 อำเภอ ได้ ' + Object.keys(k.byDistrict).length);
+        assert(k.byDistrict['เมืองสกลนคร'].plots === 4, 'plots เมืองสกลนครควรเป็น 4');
+      });
+
+      /* กฎใหม่ (ยืนยันโดยผู้ใช้ 15 ก.ค. 69) */
+      test('ปีงบประมาณ: แถวที่ระบุปีงบอื่น (เช่น 2568) ต้องถูกกันออก + แจ้งเตือน', function () {
+        var fake = seed.budget.concat([{
+          category: 'งบบริหาร', quarter: 'ไตร1-2', fiscal_year: 2568,
+          no: 2, district: 'เมืองสกลนคร', allocated: 999999, disbursed: 999999, remaining: 0, pct: 100
+        }]);
+        var b = E.processBudget(fake, 2569);
+        var leaked = b.rows.some(function (r) { return r.allocated === 999999; });
+        assert(!leaked, 'ข้อมูลปีงบ 2568 หลุดเข้าระบบ');
+        assert(b.issues.some(function (i) { return i.type === 'WRONG_FISCAL_YEAR'; }), 'ต้องมี issue แจ้งเตือนปีงบผิด');
+      });
+
+      test('งบจังหวัด/กลุ่มจังหวัด: แถวระดับอำเภอต้องไม่ถูกคำนวณ (งบนี้มีเฉพาะระดับจังหวัด)', function () {
+        var fake = seed.budget.concat([{
+          category: 'งบจังหวัด/กลุ่มจังหวัด', quarter: 'ไตร1-2',
+          no: 2, district: 'เมืองสกลนคร', allocated: 555555, disbursed: 555555, remaining: 0, pct: 100
+        }, {
+          category: 'งบจังหวัด/กลุ่มจังหวัด', quarter: 'ไตร1-2',
+          no: 1, district: 'จังหวัด', allocated: 777777, disbursed: 700000, remaining: 77777, pct: 90
+        }]);
+        var b = E.processBudget(fake, 2569);
+        var a = E.aggregate(b.rows);
+        var distLeak = a.byUnitCat['เมืองสกลนคร|งบจังหวัด/กลุ่มจังหวัด'];
+        assert(!distLeak, 'แถวรายอำเภอของงบจังหวัดหลุดเข้าการคำนวณ');
+        assert(b.issues.some(function (i) { return i.type === 'PROVINCE_ONLY_VIOLATION'; }), 'ต้องมี issue แจ้งโครงสร้างผิด');
+        var provOk = a.byUnitCat['จังหวัด|งบจังหวัด/กลุ่มจังหวัด'];
+        assert(provOk && provOk.allocated === 777777, 'แถวระดับจังหวัด (ข้อมูลดี) ต้องเข้าระบบตามปกติ');
+      });
+
+      /* รายโครงการ (processProjects) */
+      test('รายโครงการ: แกะได้มากกว่า 80 โครงการ/กิจกรรม และไม่มีแถวรายโครงการที่เบิกเกินจัดสรร', function () {
+        var pr = E.processProjects(window.SEED_PROJECTS);
+        assert(pr.list.length > 80, 'ได้ ' + pr.list.length);
+        window.SEED_PROJECTS.forEach(function (p) {
+          p.rows.forEach(function (r) {
+            if (typeof r.a === 'number' && typeof r.b === 'number') {
+              assert(r.b <= r.a + 0.001, 'พบเบิกเกินจัดสรรในรายโครงการ: ' + p.no + ' ' + r.d);
+            }
+          });
+        });
+      });
+
+      test('dedupe ข้ามชีต: เลขที่ 52 (อยู่ทั้งชีตยุทธและชีตจัดสรรกรมฯ) ต้องนับครั้งเดียว + แจ้งเตือน', function () {
+        var pr = E.processProjects(window.SEED_PROJECTS);
+        var p52 = null;
+        pr.list.forEach(function (p) { if (p.no === '52') p52 = p; });
+        assert(p52, 'ไม่พบเลขที่ 52');
+        assert(approx(p52.allocated, 43000), 'เลขที่ 52 ควรจัดสรร 43,000 (นับครั้งเดียว) ได้ ' + p52.allocated);
+        assert(pr.issues.some(function (i) { return i.type === 'DUP_PROJECT'; }), 'ต้องมี issue DUP_PROJECT');
+      });
+
+      test('กิจกรรมย่อยหลายคอลัมน์ของโครงการเดียวกันในชีตเดียวกัน ต้องรวมกัน (ไม่ใช่ dedupe ทิ้ง)', function () {
+        var pr = E.processProjects(window.SEED_PROJECTS);
+        var p2 = null;
+        pr.list.forEach(function (p) { if (p.no === '2/2569') p2 = p; });
+        assert(p2, 'ไม่พบเลขที่ 2/2569');
+        // เมืองสกลนคร: กิจกรรมที่ 1 = 24,500 + กิจกรรมที่ 3 = 5,000 → 29,500
+        assert(approx(p2.byDistrict['เมืองสกลนคร'].allocated, 29500),
+          'จปฐ เมืองสกลนคร ควรเป็น 29,500 ได้ ' + p2.byDistrict['เมืองสกลนคร'].allocated);
+      });
+
+      /* pace + คะแนนราชการ */
+      test('pace: 15 ก.ค. 2569 → เบิกแล้วควรประมาณ 78.9% (คลาด ±0.5)', function () {
+        var f = E.fiscalInfo(new Date(2026, 6, 15), 2569);
+        assert(approx(f.expectedPacePct, 78.9, 0.5), 'ได้ ' + f.expectedPacePct);
+      });
+
+      test('เกณฑ์คะแนนราชการ (สูตรเดิม ห้ามเปลี่ยน): ตรวจกับข้อมูลจริงในชีตประเมิน', function () {
+        // วานรนิวาส: 100% + เอกสารครบ + ไม่ค้าง = 5
+        assert(E.officialScore(100, true, 0) === 5);
+        // พรรณานิคม: 100% + ครบ + ค้าง 1 = 5-1 = 4
+        assert(E.officialScore(100, true, 1) === 4);
+        // ส่องดาว: 78.86% (ฐาน 0) ค้าง 5 = 0
+        assert(E.officialScore(78.86, true, 5) === 0);
+        // เมืองสกลนคร: 86.28% เอกสารไม่ครบ (ฐาน 2) ค้าง 3 = 1
+        assert(E.officialScore(86.28, false, 3) === 1);
+      });
+
+      test('เทียบคะแนนไฟล์ vs เกณฑ์: 17/18 ต้องตรง และ "พังโคน" (ไฟล์=3 เกณฑ์=2) ต้องถูก flag อัตโนมัติ', function () {
+        var q = E.processQuality(seed.quality);
+        var mismatches = Object.keys(q.byDistrict).filter(function (k) { return q.byDistrict[k].scoreMismatch; });
+        assert(mismatches.length === 1, 'ควรพบ mismatch 1 อำเภอ พบ ' + mismatches.length + ': ' + mismatches.join(', '));
+        assert(mismatches[0] === 'พังโคน', 'อำเภอที่ mismatch ควรเป็นพังโคน ได้ ' + mismatches[0]);
+        assert(q.issues.length === 1 && q.issues[0].type === 'SCORE_MISMATCH', 'ต้องสร้าง issue แจ้งเตือน');
+        var inModel = model.issues ? model.issues.some(function (i) { return i.type === 'SCORE_MISMATCH'; }) : false;
+        // model ถูกสร้างก่อนแก้ — สร้างใหม่เพื่อตรวจ
+        var m2 = E.buildModel(seed, {}, new Date(2026, 6, 15));
+        assert(m2.issues.some(function (i) { return i.type === 'SCORE_MISMATCH' && i.district === 'พังโคน'; }),
+          'issue ต้องขึ้นในหมวด "ข้อมูลต้องตรวจสอบ" ของ model');
+      });
+
+      /* กลุ่มงาน / ระดับดำเนินการ / ตัวชี้วัด (เมนูใหม่) */
+      test('level: โครงการเลขที่ 2/2569 (จปฐ กิจกรรม 3 มีแถว "จังหวัด" ปนกับรายอำเภอ) ต้องได้ level === "mixed"', function () {
+        var pr = E.processProjects(window.SEED_PROJECTS);
+        var p2 = null;
+        pr.list.forEach(function (p) { if (p.no === '2/2569') p2 = p; });
+        assert(p2, 'ไม่พบเลขที่ 2/2569');
+        assert(p2.byDistrict[E.PROVINCE_UNIT], 'เลขที่ 2/2569 ควรมีแถวระดับจังหวัดปนอยู่');
+        assert(p2.level === 'mixed', 'ควรได้ level=mixed ได้ ' + p2.level);
+      });
+
+      test('กลุ่มงาน: โครงการเลขที่ 71 (ชื่อมีคำว่า "โคก หนอง นา") ต้องได้ workGroup="ยุทธศาสตร์การพัฒนาชุมชน" แบบไม่ inferred', function () {
+        var pr = E.processProjects(window.SEED_PROJECTS);
+        var p71 = null;
+        pr.list.forEach(function (p) { if (p.no === '71') p71 = p; });
+        assert(p71, 'ไม่พบเลขที่ 71');
+        assert(p71.workGroup === 'ยุทธศาสตร์การพัฒนาชุมชน', 'ได้ workGroup=' + p71.workGroup);
+        assert(p71.workGroupInferred === false, 'เลขที่ 71 มี keyword ตรง ไม่ควร inferred');
+      });
+
+      test('กลุ่มงาน fallback: ชื่อโครงการสมมติที่ไม่มี keyword ใดเลย ต้องได้กลุ่มงาน default + workGroupInferred=true', function () {
+        var r = E.inferWorkGroup('โครงการทดสอบล้วนๆ ไม่มีคำสำคัญใดที่ตรงกับกลุ่มงานใด');
+        assert(r.workGroup === 'ยุทธศาสตร์การพัฒนาชุมชน', 'fallback ควรเป็นยุทธศาสตร์การพัฒนาชุมชน ได้ ' + r.workGroup);
+        assert(r.workGroupInferred === true, 'ต้องติด workGroupInferred=true เมื่อ fallback');
+      });
+
+      /* ถาม AI / matchQuery */
+      test('ถาม AI: matchQuery("จัดซื้อจัดจ้างเครื่องมืออุปกรณ์") ต้อง match ระเบียบ พ.ร.บ.จัดซื้อจัดจ้างฯ 2560', function () {
+        var regs = E.processRegulations(window.SEED_REGULATIONS).list;
+        var res = E.matchQuery('จัดซื้อจัดจ้างเครื่องมืออุปกรณ์', regs, []);
+        assert(res.hasMatch, 'ควร hasMatch=true');
+        assert(res.regMatches.some(function (m) { return m.reg.id === 'reg-procurement-act-2560'; }),
+          'ควร match reg-procurement-act-2560 ได้ผลลัพธ์: ' + res.regMatches.map(function (m) { return m.reg.id; }).join(','));
+      });
+
+      test('ถาม AI: matchQuery("โคกหนองนา") ต้อง cross-match โครงการเลขที่ 71 (ชื่อมีเว้นวรรค "โคก หนอง นา")', function () {
+        var pr = E.processProjects(window.SEED_PROJECTS);
+        var res = E.matchQuery('โคกหนองนา', [], pr.list);
+        assert(res.hasMatch, 'ควร hasMatch=true');
+        assert(res.projMatches.some(function (m) { return m.project.no === '71'; }),
+          'ควร cross-match เลขที่ 71 ได้ผลลัพธ์: ' + res.projMatches.map(function (m) { return m.project.no; }).join(','));
+      });
+
+      test('ถาม AI: query ไร้ความหมายที่ไม่ตรงกับระเบียบ/โครงการใดเลย ต้องได้ hasMatch=false', function () {
+        var regs = E.processRegulations(window.SEED_REGULATIONS).list;
+        var pr = E.processProjects(window.SEED_PROJECTS);
+        var res = E.matchQuery('xyzxyz ไม่มีความหมายเกี่ยวข้องใดๆ 12345', regs, pr.list);
+        assert(res.hasMatch === false, 'ควร hasMatch=false ได้ regMatches=' + res.regMatches.length + ' projMatches=' + res.projMatches.length);
+      });
+
+      /* แสดงผล */
+      var ul = document.getElementById('results');
+      var passCount = 0;
+      results.forEach(function (r) {
+        var li = document.createElement('li');
+        li.className = r.ok ? 'pass' : 'fail';
+        li.textContent = (r.ok ? '✓ ' : '✗ ') + r.name + (r.err ? ' — ' + r.err : '');
+        ul.appendChild(li);
+        if (r.ok) passCount++;
+      });
+      var s = document.getElementById('summary');
+      s.textContent = 'ผ่าน ' + passCount + ' / ' + results.length + ' ข้อ';
+      s.className = 'summary ' + (passCount === results.length ? 'ok' : 'bad');
+      window.TEST_RESULTS = results;
+    })();
+  </script>
+</body>
+</html>
