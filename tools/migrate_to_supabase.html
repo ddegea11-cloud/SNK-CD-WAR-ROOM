@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<!--
+  เครื่องมือ import ครั้งเดียว: ย้าย seed data (app/data/*.js) เข้า Supabase
+  ตามโครงสร้างใน supabase/schema.sql
+
+  วิธีใช้:
+    1. รัน supabase/schema.sql ใน Supabase Dashboard → SQL Editor ก่อน
+    2. เปิดไฟล์นี้ในเบราว์เซอร์ (ดับเบิลคลิกได้เลย ไม่ต้องมี server)
+    3. ใส่ Project URL และ Service Role Key (Dashboard → Project Settings → API)
+    4. กด "เริ่ม Migrate" แล้วรอจนกว่า log จะขึ้น "เสร็จสมบูรณ์"
+
+  คำเตือนด้านความปลอดภัย:
+    - Service Role Key เปิดสิทธิ์ข้าม RLS ทั้งหมด ใช้ที่นี่ครั้งเดียวเพื่อ import เท่านั้น
+    - ห้าม deploy ไฟล์นี้ขึ้น Vercel/เว็บสาธารณะ และห้ามใส่คีย์นี้ในไฟล์ config.js ของแอปจริง
+    - คีย์จะอยู่ในหน่วยความจำเบราว์เซอร์ชั่วคราวเท่านั้น (ไม่ถูกบันทึกที่ไหน) ปิดแท็บแล้วหายไปเลย
+-->
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>Migrate seed data → Supabase</title>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; max-width: 720px; margin: 32px auto; padding: 0 16px; color: #1a1a1a; }
+  h1 { font-size: 1.3rem; }
+  .warn { background: #fff3cd; border: 1px solid #e0c46a; padding: 10px 14px; border-radius: 6px; margin: 12px 0; font-size: 0.9rem; }
+  label { display: block; margin-top: 12px; font-weight: 600; font-size: 0.9rem; }
+  input[type=text], input[type=password], input[type=number] { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; font-family: monospace; }
+  button { margin-top: 16px; padding: 10px 18px; font-size: 1rem; cursor: pointer; }
+  #log { margin-top: 16px; background: #111; color: #d8ffd8; font-family: monospace; font-size: 0.85rem; padding: 12px; border-radius: 6px; height: 320px; overflow-y: auto; white-space: pre-wrap; }
+  .err { color: #ff8080; }
+  .ok { color: #8fff8f; }
+</style>
+</head>
+<body>
+  <h1>Migrate seed data → Supabase</h1>
+  <div class="warn">
+    ใช้ครั้งเดียวตอน setup — ต้องรัน <code>supabase/schema.sql</code> ก่อนแล้วเท่านั้น
+    ใช้ Service Role Key (ข้าม RLS ได้ทั้งหมด) ห้ามนำไฟล์นี้ไป deploy หรือแชร์คีย์นี้ให้ใคร
+  </div>
+
+  <label for="url">Supabase Project URL (เช่น https://xxxx.supabase.co)</label>
+  <input type="text" id="url" placeholder="https://xxxx.supabase.co">
+
+  <label for="key">Service Role Key (Project Settings → API → service_role)</label>
+  <input type="password" id="key" placeholder="eyJhbGciOi...">
+
+  <label for="fy">ปีงบประมาณ (พ.ศ.)</label>
+  <input type="number" id="fy" value="2569">
+
+  <label><input type="checkbox" id="clearFirst" checked style="width:auto; display:inline-block;"> ลบข้อมูลเดิมในตารางก่อน import (แนะนำสำหรับ import ครั้งแรก/รันซ้ำ)</label>
+
+  <button id="runBtn">เริ่ม Migrate</button>
+  <div id="log"></div>
+
+  <!-- โหลด seed data จริงจากแอป (path สัมพัทธ์ — เปิดไฟล์นี้จากตำแหน่งเดิมใน repo เท่านั้น) -->
+  <script src="../app/data/budget_summary.js"></script>
+  <script src="../app/data/quality_evaluation.js"></script>
+  <script src="../app/data/kok_nong_na.js"></script>
+  <script src="../app/data/projects.js"></script>
+  <script src="../app/data/regulations.js"></script>
+
+  <script>
+  var logEl = document.getElementById('log');
+  function log(msg, cls) {
+    var line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = msg;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function chunk(arr, size) {
+    var out = [];
+    for (var i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
+  }
+
+  document.getElementById('runBtn').addEventListener('click', function () {
+    var url = document.getElementById('url').value.trim().replace(/\/+$/, '');
+    var key = document.getElementById('key').value.trim();
+    var fy = parseInt(document.getElementById('fy').value, 10) || 2569;
+    var clearFirst = document.getElementById('clearFirst').checked;
+
+    if (!url || !key) { log('กรุณาใส่ URL และ Service Role Key ก่อน', 'err'); return; }
+
+    var REST = url + '/rest/v1/';
+    var HEADERS = {
+      apikey: key,
+      Authorization: 'Bearer ' + key,
+      'Content-Type': 'application/json'
+    };
+
+    function req(method, table, body, extraHeaders) {
+      var h = Object.assign({}, HEADERS, extraHeaders || {});
+      return fetch(REST + table, { method: method, headers: h, body: body ? JSON.stringify(body) : undefined })
+        .then(function (res) {
+          if (!res.ok) {
+            return res.text().then(function (t) { throw new Error(table + ' ' + method + ' ล้มเหลว (HTTP ' + res.status + '): ' + t); });
+          }
+          var ct = res.headers.get('content-type') || '';
+          return ct.indexOf('application/json') >= 0 ? res.json() : null;
+        });
+    }
+
+    function clearTable(table) {
+      // PostgREST ต้องมีเงื่อนไข filter เสมอ — ใช้ id ที่ ไม่เท่ากับ -1 (ครอบคลุมทุกแถวเพราะ id เริ่มที่ 1)
+      return req('DELETE', table + '?id=neq.-1', null, { Prefer: 'return=minimal' });
+    }
+
+    function bulkInsert(table, rows, opts) {
+      opts = opts || {};
+      var batches = chunk(rows, 500);
+      var p = Promise.resolve([]);
+      batches.forEach(function (batch, i) {
+        p = p.then(function (acc) {
+          return req('POST', table, batch, { Prefer: (opts.returning ? 'return=representation' : 'return=minimal') })
+            .then(function (result) {
+              log('  → ' + table + ' batch ' + (i + 1) + '/' + batches.length + ' (' + batch.length + ' แถว) OK');
+              return opts.returning ? acc.concat(result) : acc;
+            });
+        });
+      });
+      return p;
+    }
+
+    async function run() {
+      try {
+        log('เริ่ม migrate ปีงบ ' + fy + ' ...');
+
+        if (clearFirst) {
+          log('ลบข้อมูลเดิม...');
+          await clearTable('project_entry_rows');
+          await clearTable('project_entries');
+          await clearTable('budget_rows');
+          await clearTable('quality_evaluations');
+          await clearTable('kok_nong_na_enrichment');
+          await clearTable('regulations');
+          log('ลบข้อมูลเดิมเสร็จแล้ว', 'ok');
+        }
+
+        // ---- 1. budget_rows ----
+        var budgetRows = (window.SEED_BUDGET || []).map(function (r) {
+          var isRef = [r.allocated, r.disbursed, r.remaining, r.pct].some(function (v) { return v === '#REF!'; });
+          return {
+            fiscal_year: fy, category: r.category, quarter: r.quarter, line_no: r.no,
+            district: r.district,
+            allocated: isRef ? null : r.allocated,
+            disbursed: isRef ? null : r.disbursed,
+            remaining: isRef ? null : r.remaining,
+            pct: isRef ? null : r.pct,
+            ref_error: isRef
+          };
+        });
+        log('budget_rows: ' + budgetRows.length + ' แถว');
+        await bulkInsert('budget_rows', budgetRows);
+
+        // ---- 2. quality_evaluations ----
+        var qualityRows = (window.SEED_QUALITY || []).map(function (r) {
+          return {
+            fiscal_year: fy, district: r.district,
+            cumulative_disbursement_pct: r.cumulative_disbursement_pct,
+            documents_complete: !!r.documents_complete,
+            overdue_loan_contracts: r.overdue_loan_contracts || 0,
+            score_0_to_5: r.score_0_to_5, raw_summary: r.raw_summary || ''
+          };
+        });
+        log('quality_evaluations: ' + qualityRows.length + ' แถว');
+        await bulkInsert('quality_evaluations', qualityRows);
+
+        // ---- 3. kok_nong_na_enrichment ----
+        var knnRows = (window.SEED_KOKNONGNA || []).map(function (r) {
+          return {
+            fiscal_year: fy, district: r.district, plots: r.plots, amount: r.amount,
+            po_committed: r.po_committed, disbursed: r.disbursed,
+            supervisor_fee: r.supervisor_fee, remaining: r.remaining,
+            returned_to_dept: r.returned_to_dept
+          };
+        });
+        log('kok_nong_na_enrichment: ' + knnRows.length + ' แถว');
+        await bulkInsert('kok_nong_na_enrichment', knnRows);
+
+        // ---- 4. regulations ----
+        var regRows = (window.SEED_REGULATIONS || []).map(function (r) {
+          return {
+            id: r.id, title: r.title, issuer: r.issuer || null, source_url: r.sourceUrl || null,
+            source_type: r.sourceType, work_groups: r.workGroups || [],
+            keywords: r.keywords || [], summary: r.summary || null
+          };
+        });
+        log('regulations: ' + regRows.length + ' แถว');
+        await bulkInsert('regulations', regRows);
+
+        // ---- 5. project_entries + project_entry_rows ----
+        var projectSeed = window.SEED_PROJECTS || [];
+        var entryPayload = projectSeed.map(function (p) {
+          return {
+            fiscal_year: fy, project_no: p.no || null, name: p.name,
+            period: p.period || null, quarter: p.quarter, sheet_name: p.sheet,
+            attachment_url: null
+          };
+        });
+        log('project_entries: ' + entryPayload.length + ' รายการ (จะขอ id กลับมาด้วย)');
+        var insertedEntries = await bulkInsert('project_entries', entryPayload, { returning: true });
+        if (insertedEntries.length !== projectSeed.length) {
+          throw new Error('จำนวน project_entries ที่ insert ได้ (' + insertedEntries.length + ') ไม่ตรงกับ seed (' + projectSeed.length + ') — หยุดก่อนย้าย entry_rows เพื่อความปลอดภัย');
+        }
+
+        var entryRows = [];
+        projectSeed.forEach(function (p, i) {
+          var entryId = insertedEntries[i].id;
+          (p.rows || []).forEach(function (row) {
+            var isRef = row.a === '#REF!' || row.b === '#REF!';
+            entryRows.push({
+              entry_id: entryId, district: row.d,
+              allocated: isRef ? null : row.a,
+              disbursed: isRef ? null : row.b,
+              ref_error: isRef
+            });
+          });
+        });
+        log('project_entry_rows: ' + entryRows.length + ' แถว');
+        await bulkInsert('project_entry_rows', entryRows);
+
+        log('เสร็จสมบูรณ์ — migrate ข้อมูลทั้งหมดแล้ว', 'ok');
+        log('ต่อไป: ใส่ Project URL + anon public key ใน app/js/config.js (supabaseUrl, supabaseAnonKey) แล้วรีเฟรชแอป');
+      } catch (e) {
+        log(String(e && e.message ? e.message : e), 'err');
+      }
+    }
+
+    run();
+  });
+  </script>
+</body>
+</html>

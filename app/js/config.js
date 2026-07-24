@@ -2,7 +2,15 @@
  * ค่าตั้งต้นของระบบ — จุดเดียวที่ต้องแก้เมื่อขึ้นเฟส 3 (เชื่อม Google Sheets จริง)
  * ========================================================================= */
 window.APP_CONFIG = {
-  /* เฟส 3: ใส่ URL ของ Google Apps Script Web App (doGet ที่คืน JSON)
+  /* เฟส 2 (ทางเลือก Supabase): ใส่ URL โปรเจกต์ + anon public key
+     แล้วระบบจะสลับจาก seed data เป็น Supabase อัตโนมัติ — UI ไม่ต้องแก้
+     ค่า anon key ถูกออกแบบให้เปิดเผยฝั่ง client ได้ (Supabase RLS เป็นผู้ป้องกันจริง
+     ดู supabase/schema.sql — อนุญาตแค่ SELECT เท่านั้น) ห้ามใส่ service_role key ที่นี่เด็ดขาด
+     ตัวอย่าง: supabaseUrl: 'https://xxxx.supabase.co', supabaseAnonKey: 'eyJ...' */
+  supabaseUrl: null,
+  supabaseAnonKey: null,
+
+  /* เฟส 3 (ทางเลือกเดิม): ใส่ URL ของ Google Apps Script Web App (doGet ที่คืน JSON)
      แล้วระบบจะสลับจาก seed data เป็นข้อมูลจริงอัตโนมัติ — UI ไม่ต้องแก้
      ตัวอย่าง: appsScriptUrl: 'https://script.google.com/macros/s/XXXX/exec' */
   appsScriptUrl: null,
