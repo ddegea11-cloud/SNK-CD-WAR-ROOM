@@ -2,3 +2,11 @@
 Thumbs.db
 desktop.ini
 *.tmp
+
+# ข้อมูลงบประมาณจริง / เอกสารราชการจริง - ไม่ push ขึ้น GitHub
+tools/docx_work/
+tools/pptx_work/
+*.xlsx
+budget_summary.json
+kok_nong_na.json
+quality_evaluation.json
